@@ -7,7 +7,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000", // Usa la variable de entorno o un valor por defecto
+    origin: process.env.FRONTEND_URL || "http://localhost:8081", // Usa la variable de entorno o un valor por defecto
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true
