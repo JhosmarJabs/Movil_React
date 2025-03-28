@@ -1,11 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, StatusBar } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, StatusBar, ScrollView } from 'react-native';
 import Slider from '@react-native-community/slider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MQTT_CONFIG } from '../../config/mqtt';
 import Paho from 'paho-mqtt';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+
+// Definir tópicos MQTT
+const topics = {
+  ledState: 'sensores/led',
+  ledCommand: 'sensores/led',
+  temperature: 'sensores/temperature',
+  humidity: 'sensores/humidity',
+  luminosity: 'sensores/luminosity',
+  persianasPosition: 'sensores/motor/position',
+  persianasCommand: 'sensores/motor/set',
+  persianasMode: 'sensores/motor/mode',
+  weatherData: 'sensores/weather'
+};
 
 const MQTTPersianaControl = () => {
   const [persianaAbierta, setPersianaAbierta] = useState(false);
@@ -14,13 +27,20 @@ const MQTTPersianaControl = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [presets, setPresets] = useState([
-    { nombre: 'Mañana', valor: 75 },
-    { nombre: 'Tarde', valor: 50 },
-    { nombre: 'Noche', valor: 0 },
+    { nombre: 'Abierta', valor: 100 },
+    { nombre: 'Entre abierta', valor: 50 },
+    { nombre: 'Cerrada', valor: 0 },
   ]);
+  // Estados para widgets
+  const [temperaturaInterior, setTemperaturaInterior] = useState<number | null>(null);
+  const [temperaturaExterior, setTemperaturaExterior] = useState<number | null>(null);
+  const [humedad, setHumedad] = useState<number | null>(null);
+  const [luminosidad, setLuminosidad] = useState<number | null>(null);
+  // Estado para el modo seleccionado
+  const [modoActual, setModoActual] = useState('Manual');
 
-  const TOPICO_PERSIANA = 'sensores/servo/control';
-  const TOPICO_ESTADO = 'sensores/servo/estado';
+  const TOPICO_PERSIANA = 'sensores/motor/control';
+  const TOPICO_ESTADO = 'sensores/motor/estado';
 
   useEffect(() => {
     const cargarEstadoGuardado = async () => {
@@ -63,33 +83,72 @@ const MQTTPersianaControl = () => {
       );
 
       mqttClient.onConnectionLost = (responseObject) => {
-        console.log('Conexión MQTT perdida:', responseObject.errorMessage);
         setIsConnected(false);
         setTimeout(connectClient, 5000);
       };
 
       mqttClient.onMessageArrived = (message) => {
-        console.log('Mensaje recibido:', message.destinationName, message.payloadString);
-
-        if (message.destinationName === TOPICO_ESTADO) {
+        // Actualización en tiempo real de la posición de la persiana
+        if (message.destinationName === topics.persianasPosition || 
+            message.destinationName === topics.persianasCommand || 
+            message.destinationName === TOPICO_ESTADO) {
           try {
-            const estadoRecibido = JSON.parse(message.payloadString);
-            if (estadoRecibido.apertura !== undefined) {
-              setAperturaPersiana(estadoRecibido.apertura);
-              setPersianaAbierta(estadoRecibido.apertura > 0);
-              guardarEstado(estadoRecibido.apertura);
+            let valorApertura;
+            if (message.destinationName === TOPICO_ESTADO) {
+              const estadoRecibido = JSON.parse(message.payloadString);
+              valorApertura = estadoRecibido.apertura;
+            } else {
+              valorApertura = parseInt(message.payloadString);
+            }
+
+            if (!isNaN(valorApertura)) {
+              setAperturaPersiana(valorApertura);
+              setPersianaAbierta(valorApertura > 0);
+              guardarEstado(valorApertura);
             }
           } catch (e) {
-            console.error('Error al procesar mensaje:', e);
+            // Error silencioso
           }
         }
-          // 🆕 Agrega esto justo después
-        if (message.destinationName === 'sensores/servo/position') {
+
+        // Procesamiento de mensajes para los sensores
+        if (message.destinationName === topics.temperature) {
+          const valor = parseFloat(message.payloadString);
+          if (!isNaN(valor)) {
+            setTemperaturaInterior(valor);
+          }
+        }
+        
+        if (message.destinationName === topics.weatherData) {
+          try {
+            const data = JSON.parse(message.payloadString);
+            if (data && data.temperature) {
+              setTemperaturaExterior(data.temperature);
+            }
+          } catch (e) {
+            console.error('Error parsing weather data:', e);
+          }
+        }
+        
+        if (message.destinationName === topics.humidity) {
           const valor = parseInt(message.payloadString);
           if (!isNaN(valor)) {
-            setAperturaPersiana(valor);
-            setPersianaAbierta(valor > 0);
-            guardarEstado(valor);
+            setHumedad(valor);
+          }
+        }
+        
+        if (message.destinationName === topics.luminosity) {
+          const valor = parseInt(message.payloadString);
+          if (!isNaN(valor)) {
+            setLuminosidad(valor);
+          }
+        }
+        
+        if (message.destinationName === topics.persianasMode) {
+          const modo = message.payloadString;
+          if (modo === "manual" || modo === "auto" || modo === "programmed") {
+            setModoActual(modo === "manual" ? "Manual" : 
+                         modo === "auto" ? "Automático" : "Programado");
           }
         }
       };
@@ -100,13 +159,23 @@ const MQTTPersianaControl = () => {
         cleanSession: true,
         useSSL: false,
         onSuccess: () => {
-          console.log('Conexión MQTT exitosa');
           setIsConnected(true);
 
-          const topicos = [TOPICO_ESTADO, 'sensores/servo/+', 'sensores/servo/position'];
-          topicos.forEach((topico) => {
+          const topicosParaSuscribirse = [
+            topics.ledState,
+            topics.temperature,
+            topics.humidity, 
+            topics.luminosity,
+            topics.persianasPosition,
+            topics.persianasCommand,
+            topics.persianasMode,
+            topics.weatherData,
+            TOPICO_ESTADO,
+            'sensores/motor/+',
+          ];
+          
+          topicosParaSuscribirse.forEach((topico) => {
             mqttClient.subscribe(topico);
-            console.log(`Suscrito al tópico: ${topico}`);
           });
 
           const mensajeEstado = new Paho.Message(JSON.stringify({ comando: 'getEstado' }));
@@ -116,7 +185,7 @@ const MQTTPersianaControl = () => {
           setClient(mqttClient);
         },
         onFailure: (err: Paho.MQTTError) => {
-          console.error('Error de conexión MQTT:', err);
+          setIsConnected(false);
           Alert.alert(
             'Error de conexión',
             'No se pudo conectar al sistema de persianas. ¿Está encendido el controlador?',
@@ -125,7 +194,6 @@ const MQTTPersianaControl = () => {
               { text: 'Continuar sin conexión' }
             ]
           );
-          setIsConnected(false);
         }
       };
 
@@ -155,17 +223,33 @@ const MQTTPersianaControl = () => {
 
   const enviarComandoPersiana = (valor: number) => {
     if (client && client.isConnected()) {
-      const message = new Paho.Message(String(valor)); // ⚠️ valor debe estar entre 0 y 180
-      message.destinationName = 'sensores/servo/set';
+      // Enviar comando al tópico de control
+      const message = new Paho.Message(String(valor));
+      message.destinationName = topics.persianasCommand;
       message.qos = 1;
       client.send(message);      
 
-      console.log(`Comando enviado: apertura ${valor}%`);
+      // Actualización inmediata de la UI para feedback
       setAperturaPersiana(valor);
       setPersianaAbierta(valor > 0);
       guardarEstado(valor);
+
+      // Solicitar confirmación del estado actual
+      setTimeout(() => {
+        const statusRequest = new Paho.Message(JSON.stringify({ comando: 'getEstado' }));
+        statusRequest.destinationName = TOPICO_PERSIANA;
+        client.send(statusRequest);
+      }, 500);
+
     } else if (!isConnected) {
-      Alert.alert('Sin conexión', 'No hay conexión con el controlador de persianas.');
+      Alert.alert(
+        'Sin conexión',
+        'No hay conexión con el controlador de persianas. Intente reconectar.',
+        [
+          { text: 'Cancelar' },
+          { text: 'Reconectar', onPress: () => connectClient() }
+        ]
+      );
     }
   };
 
@@ -175,46 +259,23 @@ const MQTTPersianaControl = () => {
     enviarComandoPersiana(nuevaPosicion);
   };
 
-  const actualizarApertura = (valor: number) => {
-    setAperturaPersiana(valor);
-  };
-
-  const aplicarApertura = (valor: number) => {
-    if (client && client.isConnected()) {
-      const message = new Paho.Message(String(valor));
-      message.destinationName = 'sensores/servo/set'; // Tópico corregido
-      message.qos = 1;
-      client.send(message);
-
-      console.log(`Comando enviado al tópico sensores/servo/set: ${valor}`);
-    } else if (!isConnected) {
-      Alert.alert('Sin conexión', 'No hay conexión con el controlador.');
-    }
-  };
-
   const aplicarPreset = (valor: number) => {
     enviarComandoPersiana(valor);
   };
 
-  const guardarComoPreset = () => {
-    Alert.prompt(
-      'Guardar posición',
-      'Introduce un nombre para esta posición:',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Guardar',
-          onPress: (nombre) => {
-            if (nombre) {
-              const nuevoPreset = { nombre, valor: aperturaPersiana };
-              const nuevosPresets = [...presets, nuevoPreset];
-              guardarPresets(nuevosPresets);
-              Alert.alert('Éxito', `Posición "${nombre}" guardada correctamente.`);
-            }
-          }
-        }
-      ]
-    );
+  const cambiarModo = (modo: string) => {
+    setModoActual(modo);
+    
+    // Enviar el cambio de modo al servidor
+    if (client && client.isConnected()) {
+      const modoParaEnviar = modo === 'Manual' ? 'manual' : 
+                             modo === 'Automático' ? 'auto' : 'programmed';
+      
+      const message = new Paho.Message(modoParaEnviar);
+      message.destinationName = topics.persianasMode;
+      message.qos = 1;
+      client.send(message);
+    }
   };
 
   if (loading) {
@@ -235,7 +296,66 @@ const MQTTPersianaControl = () => {
         </View>
       </View>
 
-      <View style={styles.container}>
+      <ScrollView style={styles.container}>
+        {/* Panel de selección de modo */}
+        <View style={styles.modeSelectionContainer}>
+          <Text style={styles.modeSelectionTitle}>Modo de Operación</Text>
+          <View style={styles.modeButtonsContainer}>
+            <TouchableOpacity 
+              style={[styles.modeButton, modoActual === 'Manual' && styles.modeButtonActive]}
+              onPress={() => cambiarModo('Manual')}
+            >
+              <Ionicons name="hand-left-outline" size={20} color={modoActual === 'Manual' ? '#fff' : '#343a40'} />
+              <Text style={[styles.modeButtonText, modoActual === 'Manual' && styles.modeButtonTextActive]}>Manual</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modeButton, modoActual === 'Automático' && styles.modeButtonActive]}
+              onPress={() => cambiarModo('Automático')}
+            >
+              <Ionicons name="flash-outline" size={20} color={modoActual === 'Automático' ? '#fff' : '#343a40'} />
+              <Text style={[styles.modeButtonText, modoActual === 'Automático' && styles.modeButtonTextActive]}>Automático</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modeButton, modoActual === 'Programado' && styles.modeButtonActive]}
+              onPress={() => cambiarModo('Programado')}
+            >
+              <Ionicons name="calendar-outline" size={20} color={modoActual === 'Programado' ? '#fff' : '#343a40'} />
+              <Text style={[styles.modeButtonText, modoActual === 'Programado' && styles.modeButtonTextActive]}>Programado</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Widgets de sensores */}
+        <View style={styles.sensorsContainer}>
+          <View style={styles.sensorWidget}>
+            <Ionicons name="thermometer-outline" size={24} color="#dc3545" />
+            <Text style={styles.sensorValue}>{(temperaturaInterior ?? 0).toFixed(1)}°C</Text>
+            <Text style={styles.sensorLabel}>Temp. Interior</Text>
+          </View>
+          
+          <View style={styles.sensorWidget}>
+            <Ionicons name="thermometer-outline" size={24} color="#fd7e14" />
+            <Text style={styles.sensorValue}>{(temperaturaExterior ?? 0).toFixed(1)}°C</Text>
+            <Text style={styles.sensorLabel}>Temp. Exterior</Text>
+          </View>
+        </View>
+        
+        <View style={styles.sensorsContainer}>
+          <View style={styles.sensorWidget}>
+            <Ionicons name="water-outline" size={24} color="#0d6efd" />
+            <Text style={styles.sensorValue}>{humedad}%</Text>
+            <Text style={styles.sensorLabel}>Humedad</Text>
+          </View>
+          
+          <View style={styles.sensorWidget}>
+            <Ionicons name="sunny-outline" size={24} color="#ffc107" />
+            <Text style={styles.sensorValue}>{luminosidad}</Text>
+            <Text style={styles.sensorLabel}>Luminosidad</Text>
+          </View>
+        </View>
+
         <View style={styles.persianaVisualizacion}>
           <View style={styles.ventana}>
             <View style={[styles.persiana, { height: `${100 - aperturaPersiana}%` }]} />
@@ -253,32 +373,11 @@ const MQTTPersianaControl = () => {
               {persianaAbierta ? "CERRAR PERSIANA" : "ABRIR PERSIANA"}
             </Text>
           </TouchableOpacity>
-
-          <View style={styles.sliderContainer}>
-            <Text style={styles.sliderLabel}>Ajustar apertura</Text>
-            <Slider
-              style={styles.slider}
-              minimumValue={0}
-              maximumValue={100}
-              step={1}
-              value={aperturaPersiana}
-              onValueChange={actualizarApertura}
-              onSlidingComplete={aplicarApertura}
-              minimumTrackTintColor="#007bff"
-              maximumTrackTintColor="#d3d3d3"
-              thumbTintColor="#007bff"
-            />
-            <View style={styles.sliderLabels}>
-              <Text>0%</Text>
-              <Text>50%</Text>
-              <Text>100%</Text>
-            </View>
-          </View>
         </View>
 
         <View style={styles.presetsContainer}>
           <Text style={styles.presetsTitle}>Presets rápidos:</Text>
-          <View style={styles.presetButtons}>
+          <View style={styles.presetsButtons}>
             {presets.map((preset, index) => (
               <TouchableOpacity
                 key={index}
@@ -289,17 +388,9 @@ const MQTTPersianaControl = () => {
                 <Text style={styles.presetValue}>{preset.valor}%</Text>
               </TouchableOpacity>
             ))}
-
-            <TouchableOpacity
-              style={[styles.presetButton, styles.addPresetButton]}
-              onPress={guardarComoPreset}
-            >
-              <Ionicons name="add-circle-outline" size={24} color="#007bff" />
-              <Text style={[styles.presetName, { color: '#007bff' }]}>Guardar</Text>
-            </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -317,6 +408,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e1e4e8',
+    marginTop: 10, // Añadido para evitar que se corte en la parte superior
   },
   headerTitle: {
     fontSize: 18,
@@ -347,9 +439,94 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  
+  // Estilos para el panel de selección de modo
+  modeSelectionContainer: {
+    backgroundColor: '#f1f3f5',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  modeSelectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#343a40',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modeButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e9ecef',
+    paddingVertical: 10,
+    paddingHorizontal: 5,
+    margin: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ced4da',
+  },
+  modeButtonActive: {
+    backgroundColor: '#007bff',
+    borderColor: '#0069d9',
+  },
+  modeButtonText: {
+    color: '#343a40',
+    fontSize: 13,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  modeButtonTextActive: {
+    color: '#fff',
+  },
+  
+  // Estilos para los widgets de sensores
+  sensorsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sensorWidget: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 10,
+    margin: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  sensorValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#343a40',
+    marginVertical: 4,
+  },
+  sensorLabel: {
+    fontSize: 12,
+    color: '#6c757d',
+  },
+  
   persianaVisualizacion: {
     alignItems: 'center',
     marginBottom: 24,
+    marginTop: 10,
   },
   ventana: {
     width: 200,
@@ -397,27 +574,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
-  sliderContainer: {
-    marginTop: 12,
-  },
-  sliderLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
-    color: '#495057',
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  sliderLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    marginTop: -4,
-  },
   presetsContainer: {
     marginTop: 8,
+    marginBottom: 20,
   },
   presetsTitle: {
     fontSize: 16,
@@ -425,7 +584,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: '#495057',
   },
-  presetButtons: {
+  presetsButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
@@ -442,12 +601,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 1,
-  },
-  addPresetButton: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#007bff',
-    backgroundColor: 'transparent',
   },
   presetName: {
     fontSize: 14,
