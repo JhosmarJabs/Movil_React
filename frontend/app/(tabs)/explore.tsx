@@ -4,9 +4,11 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/styles';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
+// Interface remains the same
 interface Producto {
   _id: string;
   title: string;
@@ -28,10 +30,11 @@ interface Producto {
     motorizacion?: string;
     resistencia?: string;
   };
-  webUrl?: string; // Nueva propiedad
+  webUrl?: string;
 }
 
 export default function ProductsScreen() {
+  // State management remains the same
   const [productos, setProductos] = useState<Producto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -79,7 +82,7 @@ export default function ProductsScreen() {
       availability: producto.availability || '',
       image: producto.image || 'https://via.placeholder.com/150',
       specs: producto.specs || {},
-      webUrl: producto.webUrl || 'https://www.example.com/products', // URL por defecto
+      webUrl: producto.webUrl || 'https://www.example.com/products',
     };
   };
 
@@ -125,6 +128,8 @@ export default function ProductsScreen() {
     return productos.filter(producto => producto.category === categoria);
   };
 
+  // Render functions with enhanced styling
+
   if (isLoading) {
     return (
       <View style={styles.centeredContainer}>
@@ -155,9 +160,16 @@ export default function ProductsScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText type="title" style={styles.mainTitle}>Nuestros Productos</ThemedText>
-      </View>
+      <LinearGradient
+        colors={[colors.primaryLight, colors.white]}
+        start={[0, 0]}
+        end={[0, 0.2]}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <ThemedText type="title" style={styles.mainTitle}>Nuestros Productos</ThemedText>
+        </View>
+      </LinearGradient>
 
       {categorias.map(categoria => {
         const productosFiltrados = productosPorCategoria(categoria);
@@ -167,11 +179,19 @@ export default function ProductsScreen() {
           <View key={categoria} style={styles.categoryContainer}>
             <View style={styles.categoryHeader}>
               <ThemedText type="subtitle" style={styles.categoryTitle}>{categoria}</ThemedText>
+              <View style={styles.categoryLine}></View>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
               {productosFiltrados.map(producto => (
-                <TouchableOpacity key={producto._id} onPress={() => abrirModal(producto)}>
+                <TouchableOpacity key={producto._id} onPress={() => abrirModal(producto)} activeOpacity={0.7}>
                   <ThemedView style={styles.horizontalProductCard}>
+                    {producto.discount > 0 && (
+                      <View style={styles.badgeContainer}>
+                        <View style={styles.discountBadge}>
+                          <ThemedText style={styles.discountText}>{producto.discount}% OFF</ThemedText>
+                        </View>
+                      </View>
+                    )}
                     <View style={styles.iconCircle}>
                       <Image 
                         source={{ uri: producto.image.startsWith('http') 
@@ -182,9 +202,17 @@ export default function ProductsScreen() {
                     </View>
                     <View style={styles.productInfo}>
                       <ThemedText style={styles.productCategory}>{producto.brand}</ThemedText>
-                      <ThemedText style={styles.productTitle}>{producto.title}</ThemedText>
+                      <ThemedText style={styles.productTitle} numberOfLines={1} ellipsizeMode="tail">{producto.title}</ThemedText>
                       <View style={styles.priceRow}>
-                        <ThemedText style={styles.productPrice}>${producto.price}</ThemedText>
+                        <View style={styles.priceContainer}>
+                          <ThemedText style={styles.productPrice}>${producto.price}</ThemedText>
+                          {producto.rating > 0 && (
+                            <View style={styles.ratingContainer}>
+                              <Ionicons name="star" size={12} color="#FFD700" />
+                              <ThemedText style={styles.ratingText}>{producto.rating}</ThemedText>
+                            </View>
+                          )}
+                        </View>
                       </View>
                     </View>
                   </ThemedView>
@@ -209,43 +237,91 @@ export default function ProductsScreen() {
                   <TouchableOpacity onPress={cerrarModal} style={styles.closeButton}>
                     <Ionicons name="close" size={24} color={colors.primaryDark} />
                   </TouchableOpacity>
-                  <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
-                    <Image 
-                      source={{ uri: productoSeleccionado.image.startsWith('http') 
-                        ? productoSeleccionado.image 
-                        : `http://192.168.1.79:5000${productoSeleccionado.image}` }} 
-                      style={styles.modalImage}
-                    />
+                  
+                  {/* Improved ScrollView with contentContainerStyle to ensure content is properly laid out */}
+                  <ScrollView 
+                    contentContainerStyle={styles.modalContent} 
+                    showsVerticalScrollIndicator={false}
+                    style={styles.modalScrollView}
+                  >
+                    <View style={styles.modalImageContainer}>
+                      <Image 
+                        source={{ uri: productoSeleccionado.image.startsWith('http') 
+                          ? productoSeleccionado.image 
+                          : `http://192.168.1.79:5000${productoSeleccionado.image}` }} 
+                        style={styles.modalImage}
+                      />
+                    </View>
                     <ThemedText style={styles.modalTitle}>{productoSeleccionado.title}</ThemedText>
                     <ThemedText style={styles.modalBrand}>{productoSeleccionado.brand}</ThemedText>
+                    
+                    {productoSeleccionado.rating > 0 && (
+                      <View style={styles.modalRatingContainer}>
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Ionicons 
+                            key={star}
+                            name={star <= productoSeleccionado.rating ? "star" : "star-outline"} 
+                            size={16} 
+                            color="#FFD700" 
+                            style={{marginHorizontal: 2}}
+                          />
+                        ))}
+                        <ThemedText style={styles.modalReviews}>({productoSeleccionado.reviews})</ThemedText>
+                      </View>
+                    )}
+                    
                     <ThemedText style={styles.modalPrice}>${productoSeleccionado.price}</ThemedText>
+                    
+                    <View style={styles.separator} />
+                    
                     <ThemedText style={styles.modalDescription}>{productoSeleccionado.description}</ThemedText>
-                    {productoSeleccionado.specs && (
-                      <View style={{ marginTop: 10 }}>
+                    
+                    {productoSeleccionado.specs && Object.keys(productoSeleccionado.specs).length > 0 && (
+                      <View style={styles.specsContainer}>
+                        <ThemedText style={styles.specsTitle}>Especificaciones</ThemedText>
                         {productoSeleccionado.specs.material && (
-                          <ThemedText style={styles.modalSpecs}>Material: {productoSeleccionado.specs.material}</ThemedText>
+                          <View style={styles.specRow}>
+                            <Ionicons name="hardware-chip-outline" size={16} color={colors.primaryMedium} />
+                            <ThemedText style={styles.modalSpecs}>Material: {productoSeleccionado.specs.material}</ThemedText>
+                          </View>
                         )}
                         {productoSeleccionado.specs.conectividad && (
-                          <ThemedText style={styles.modalSpecs}>Conectividad: {productoSeleccionado.specs.conectividad}</ThemedText>
+                          <View style={styles.specRow}>
+                            <Ionicons name="wifi-outline" size={16} color={colors.primaryMedium} />
+                            <ThemedText style={styles.modalSpecs}>Conectividad: {productoSeleccionado.specs.conectividad}</ThemedText>
+                          </View>
                         )}
                         {productoSeleccionado.specs.bateria && (
-                          <ThemedText style={styles.modalSpecs}>Batería: {productoSeleccionado.specs.bateria}</ThemedText>
+                          <View style={styles.specRow}>
+                            <Ionicons name="battery-charging-outline" size={16} color={colors.primaryMedium} />
+                            <ThemedText style={styles.modalSpecs}>Batería: {productoSeleccionado.specs.bateria}</ThemedText>
+                          </View>
                         )}
                         {productoSeleccionado.specs.motorizacion && (
-                          <ThemedText style={styles.modalSpecs}>Motorización: {productoSeleccionado.specs.motorizacion}</ThemedText>
+                          <View style={styles.specRow}>
+                            <Ionicons name="car-outline" size={16} color={colors.primaryMedium} />
+                            <ThemedText style={styles.modalSpecs}>Motorización: {productoSeleccionado.specs.motorizacion}</ThemedText>
+                          </View>
                         )}
                         {productoSeleccionado.specs.resistencia && (
-                          <ThemedText style={styles.modalSpecs}>Resistencia: {productoSeleccionado.specs.resistencia}</ThemedText>
+                          <View style={styles.specRow}>
+                            <Ionicons name="shield-outline" size={16} color={colors.primaryMedium} />
+                            <ThemedText style={styles.modalSpecs}>Resistencia: {productoSeleccionado.specs.resistencia}</ThemedText>
+                          </View>
                         )}
                       </View>
                     )}
+                    
                     <TouchableOpacity 
                       style={styles.webButton}
                       onPress={() => Linking.openURL(productoSeleccionado.webUrl || '')}
                     >
                       <Ionicons name="globe-outline" size={20} color={colors.white} />
-                      <ThemedText style={styles.webButtonText}>Ir a Web</ThemedText>
+                      <ThemedText style={styles.buttonText}>Ver en Web</ThemedText>
                     </TouchableOpacity>
+                    
+                    {/* Added extra padding at the bottom to ensure better scrolling */}
+                    <View style={styles.bottomPadding} />
                   </ScrollView>
                 </Animated.View>
               </TouchableWithoutFeedback>
@@ -257,12 +333,16 @@ export default function ProductsScreen() {
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.white,
-    padding: 16,
+  },
+  headerGradient: {
+    paddingHorizontal: 16,
+    paddingTop: 25,
+    paddingBottom: 15,
+    marginBottom: 10,
   },
   centeredContainer: {
     flex: 1,
@@ -291,136 +371,57 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Open Sans',
   },
-  retryButton: {
-    marginTop: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: colors.primaryMedium,
-    borderRadius: 6,
-  },
-  retryButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: 'bold',
-    fontFamily: 'Montserrat',
-  },
-  debugContainer: {
-    marginBottom: 20,
-    padding: 10,
-    backgroundColor: 'rgba(0,0,0,0.03)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-  },
-  debugTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: colors.primaryDark,
-  },
-  debugText: {
-    fontSize: 12,
-    color: colors.primaryLight,
-    fontFamily: 'monospace',
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 15, // Added top margin to prevent text from being cut off
-    paddingTop: 10, // Additional padding for extra spacing
   },
   mainTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     fontFamily: 'Montserrat',
     color: colors.primaryDark,
-  },
-  searchButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  promoBanner: {
-    backgroundColor: colors.primaryDark,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  promoText: {
-    color: colors.white,
-    fontSize: 20,
-    fontWeight: 'bold',
-    fontFamily: 'Montserrat',
-    marginBottom: 4,
-  },
-  promoDescription: {
-    color: colors.white,
-    fontSize: 14,
-    fontFamily: 'Open Sans',
-    marginBottom: 12,
-  },
-  promoButton: {
-    backgroundColor: colors.white,
-    padding: 8,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  promoButtonText: {
-    color: colors.primaryMedium,
-    fontWeight: 'bold',
-    fontSize: 12,
-    fontFamily: 'Montserrat',
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   categoryContainer: {
     marginBottom: 24,
+    paddingHorizontal: 16,
   },
   categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 12,
   },
   categoryTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '600',
     fontFamily: 'Open Sans',
     color: colors.primaryMedium,
   },
-  seeAllLink: {
-    fontSize: 14,
-    fontFamily: 'Open Sans',
-    color: colors.accent,
+  categoryLine: {
+    height: 3,
+    width: 40,
+    backgroundColor: colors.accent,
+    marginTop: 4,
+    borderRadius: 2,
   },
   horizontalScroll: {
     paddingVertical: 8,
   },
   horizontalProductCard: {
-    width: width * 0.38, // Reducido de 0.42 a 0.38
+    width: width * 0.38,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 8, // Reducido de 12 a 8
-    marginRight: 8, // Reducido de 12 a 8
+    borderRadius: 16,
+    padding: 12,
+    marginRight: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   badgeContainer: {
     position: 'absolute',
@@ -430,9 +431,9 @@ const styles = StyleSheet.create({
   },
   discountBadge: {
     backgroundColor: '#FF3B30',
-    borderRadius: 4,
+    borderRadius: 8,
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 3,
   },
   discountText: {
     color: '#FFFFFF',
@@ -441,17 +442,19 @@ const styles = StyleSheet.create({
   },
   iconCircle: {
     backgroundColor: 'rgba(65, 90, 119, 0.08)',
-    borderRadius: 40, // Reducido de 50 a 40
-    width: 70, // Reducido de 80 a 70
-    height: 70, // Reducido de 80 a 70
+    borderRadius: 50,
+    width: 80,
+    height: 80,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8, // Reducido de 10 a 8
+    marginBottom: 10,
     alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(65, 90, 119, 0.15)',
   },
   productImage: {
-    width: 50, // Reducido de 60 a 50
-    height: 50, // Reducido de 60 a 50
+    width: 60,
+    height: 60,
     resizeMode: 'contain',
   },
   productInfo: {
@@ -462,19 +465,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Open Sans',
     color: colors.accent,
     marginBottom: 2,
+    fontWeight: '500',
   },
   productTitle: {
-    fontSize: 14, // Reducido de 16 a 14
+    fontSize: 14,
     fontFamily: 'Open Sans',
     color: colors.primaryMedium,
     fontWeight: '600',
-    marginBottom: 4, // Reducido de 6 a 4
+    marginBottom: 6,
   },
   priceRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center', // Changed from space-between to center
     alignItems: 'center',
     width: '100%',
+    marginTop: 2,
+  },
+  priceContainer: {
+    alignItems: 'center', // Center the price and rating
   },
   productPrice: {
     fontSize: 18,
@@ -482,13 +490,16 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     fontWeight: 'bold',
   },
-  addToCartButton: {
-    backgroundColor: colors.primaryLight,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
+  ratingContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 2,
+    justifyContent: 'center', // Center the star and rating
+  },
+  ratingText: {
+    fontSize: 12,
+    color: colors.primaryMedium,
+    marginLeft: 3,
   },
   modalOverlay: {
     flex: 1,
@@ -498,80 +509,137 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: colors.white,
-    padding: 16, // Reducido de 20 a 16
-    borderRadius: 12,
-    width: '85%', // Reducido de 90% a 85%
-    maxHeight: '75%', // Reducido de 80% a 75%
-    alignItems: 'center',
+    borderRadius: 20,
+    width: '85%',
+    maxHeight: '80%',
     marginTop: 'auto',
     marginBottom: 'auto',
+    overflow: 'hidden',
+  },
+  modalScrollView: {
+    width: '100%',
   },
   modalContent: {
-    paddingBottom: 16, // Reducido de 20 a 16
     alignItems: 'center',
-    width: '100%', // Asegura que el contenido no se desborde
+    width: '100%',
+    paddingBottom: 20, // Added more padding at bottom
   },
   closeButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    zIndex: 1,
+    top: 15,
+    right: 15,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalImageContainer: {
+    width: '100%',
+    height: 160,
+    backgroundColor: 'rgba(65, 90, 119, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   modalImage: {
-    width: 100, // Reducido de 120 a 100
-    height: 100, // Reducido de 120 a 100
+    width: 120,
+    height: 120,
     resizeMode: 'contain',
-    marginBottom: 12, // Reducido de 16 a 12
   },
   modalTitle: {
-    fontSize: 20, // Reducido de 22 a 20
+    fontSize: 22,
     fontWeight: 'bold',
     color: colors.primaryDark,
-    marginBottom: 4, // Reducido de 6 a 4
+    marginBottom: 4,
     textAlign: 'center',
-    paddingHorizontal: 10, // Añadido para evitar que el texto toque los bordes
+    paddingHorizontal: 20,
   },
   modalBrand: {
     fontSize: 16,
     color: colors.primaryMedium,
     marginBottom: 6,
+    textAlign: 'center',
+  },
+  modalRatingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalReviews: {
+    fontSize: 14,
+    color: colors.primaryLight,
+    marginLeft: 5,
   },
   modalPrice: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
     color: colors.primaryDark,
-    marginBottom: 10,
+    textAlign: 'center',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    marginVertical: 16,
+    width: '90%',
+    alignSelf: 'center',
   },
   modalDescription: {
-    fontSize: 13, // Reducido de 14 a 13
+    fontSize: 15,
+    lineHeight: 22,
     color: colors.primaryLight,
-    textAlign: 'center',
-    marginBottom: 8, // Reducido de 10 a 8
-    paddingHorizontal: 12, // Añadido para mejor legibilidad
+    textAlign: 'left',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+    width: '100%',
+  },
+  specsContainer: {
+    backgroundColor: 'rgba(65, 90, 119, 0.05)',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 20, // Increased margin bottom
+    width: '90%', // Make sure it's properly sized
+    alignSelf: 'center',
+  },
+  specsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primaryMedium,
+    marginBottom: 10,
+  },
+  specRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   modalSpecs: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.primaryMedium,
-    textAlign: 'center',
+    marginLeft: 8,
+    flex: 1, // Allow text to wrap if needed
   },
   webButton: {
     backgroundColor: colors.primaryMedium,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 16,
-    width: '80%',
-    alignSelf: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    width: '90%', // Make the button a bit narrower
+    marginTop: 5, // Added some top margin
+    marginBottom: 20, // Ensure space below the button
   },
-  webButtonText: {
+  buttonText: {
     color: colors.white,
     fontSize: 16,
     fontWeight: 'bold',
-    flex: 1,
-    textAlign: 'center',
-    marginRight: 20, // Para compensar el espacio del icono
+    marginLeft: 8,
   },
+  bottomPadding: {
+    height: 20, // Extra padding at the bottom to ensure content is fully scrollable
+  }
 });

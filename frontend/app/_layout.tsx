@@ -42,7 +42,7 @@ export default function RootLayout() {
         />
         
         {/* Pantallas públicas */}
-        <Stack.Screen name="login" />
+        <Stack.Screen name="Login" />
         <Stack.Screen name="registro" />
         
         {/* Pantallas protegidas */}

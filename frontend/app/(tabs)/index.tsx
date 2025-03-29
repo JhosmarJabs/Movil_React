@@ -6,6 +6,7 @@ import { MQTT_CONFIG } from '../../config/mqtt';
 import Paho from 'paho-mqtt';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 // Definir tópicos MQTT
 const topics = {
@@ -21,6 +22,7 @@ const topics = {
 };
 
 const MQTTPersianaControl = () => {
+  const router = useRouter(); // Usar el hook useRouter al inicio del componente
   const [persianaAbierta, setPersianaAbierta] = useState(false);
   const [aperturaPersiana, setAperturaPersiana] = useState(0);
   const [client, setClient] = useState<Paho.Client | null>(null);
@@ -278,6 +280,49 @@ const MQTTPersianaControl = () => {
     }
   };
 
+  // Función para cerrar sesión
+  const handleLogout = async () => {
+    Alert.alert(
+      "Cerrar Sesión",
+      "¿Estás seguro que deseas cerrar sesión?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Sí, salir",
+          onPress: async () => {
+            // Desconectar MQTT si está conectado
+            if (client && client.isConnected()) {
+              client.disconnect();
+            }
+  
+            try {
+              // Eliminar el token de usuario
+              await AsyncStorage.removeItem('userToken');
+              
+              // También puedes limpiar otros datos de sesión específicos
+              // await AsyncStorage.removeItem('userName');
+              
+              // Para una limpieza completa (opcional):
+              // await AsyncStorage.clear();
+  
+              // Redirigir a la pantalla de inicio de sesión
+              router.replace('/login');
+            } catch (e) {
+              console.error('Error al cerrar sesión:', e);
+              Alert.alert(
+                "Error",
+                "No se pudo cerrar la sesión correctamente. Inténtalo de nuevo."
+              );
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.centeredContainer}>
@@ -291,8 +336,15 @@ const MQTTPersianaControl = () => {
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Control de Persianas</Text>
-        <View style={[styles.connectionStatus, isConnected ? styles.connected : styles.disconnected]}>
-          <Text style={styles.connectionText}>{isConnected ? 'Conectado' : 'Desconectado'}</Text>
+        
+        <View style={styles.headerRight}>
+          <View style={[styles.connectionStatus, isConnected ? styles.connected : styles.disconnected]}>
+            <Text style={styles.connectionText}>{isConnected ? 'Conectado' : 'Desconectado'}</Text>
+          </View>
+          
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color="#dc3545" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -345,13 +397,13 @@ const MQTTPersianaControl = () => {
         <View style={styles.sensorsContainer}>
           <View style={styles.sensorWidget}>
             <Ionicons name="water-outline" size={24} color="#0d6efd" />
-            <Text style={styles.sensorValue}>{humedad}%</Text>
+            <Text style={styles.sensorValue}>{humedad ?? 0}%</Text>
             <Text style={styles.sensorLabel}>Humedad</Text>
           </View>
           
           <View style={styles.sensorWidget}>
             <Ionicons name="sunny-outline" size={24} color="#ffc107" />
-            <Text style={styles.sensorValue}>{luminosidad}</Text>
+            <Text style={styles.sensorValue}>{luminosidad ?? 0}</Text>
             <Text style={styles.sensorLabel}>Luminosidad</Text>
           </View>
         </View>
@@ -415,10 +467,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#212529',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   connectionStatus: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    marginRight: 10,
   },
   connected: {
     backgroundColor: '#d4edda',
@@ -429,6 +486,9 @@ const styles = StyleSheet.create({
   connectionText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  logoutButton: {
+    padding: 5,
   },
   container: {
     flex: 1,
