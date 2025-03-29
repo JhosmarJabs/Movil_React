@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, Image, StyleSheet, View, TouchableOpacity, Dimensions, ActivityIndicator, Modal, Animated, Easing, TouchableWithoutFeedback, Linking } from 'react-native';
+import { ScrollView, Image, StyleSheet, View, TouchableOpacity, Dimensions, ActivityIndicator, Modal, Animated, Easing, TouchableWithoutFeedback, Linking, SafeAreaView } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/styles';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 // Interface remains the same
 interface Producto {
@@ -226,107 +226,99 @@ export default function ProductsScreen() {
       {productoSeleccionado && (
         <Modal
           visible={modalVisible}
-          animationType="fade"
+          animationType="slide"
           transparent
           onRequestClose={cerrarModal}
         >
-          <TouchableWithoutFeedback onPress={cerrarModal}>
-            <View style={styles.modalOverlay}>
-              <TouchableWithoutFeedback onPress={() => {}}>
-                <Animated.View style={[styles.modalContainer, { transform: [{ translateY: slideAnim }] }]}>
-                  <TouchableOpacity onPress={cerrarModal} style={styles.closeButton}>
-                    <Ionicons name="close" size={24} color={colors.primaryDark} />
-                  </TouchableOpacity>
-                  
-                  {/* Improved ScrollView with contentContainerStyle to ensure content is properly laid out */}
-                  <ScrollView 
-                    contentContainerStyle={styles.modalContent} 
-                    showsVerticalScrollIndicator={false}
-                    style={styles.modalScrollView}
-                  >
-                    <View style={styles.modalImageContainer}>
-                      <Image 
-                        source={{ uri: productoSeleccionado.image.startsWith('http') 
-                          ? productoSeleccionado.image 
-                          : `http://192.168.1.79:5000${productoSeleccionado.image}` }} 
-                        style={styles.modalImage}
-                      />
-                    </View>
-                    <ThemedText style={styles.modalTitle}>{productoSeleccionado.title}</ThemedText>
-                    <ThemedText style={styles.modalBrand}>{productoSeleccionado.brand}</ThemedText>
-                    
-                    {productoSeleccionado.rating > 0 && (
-                      <View style={styles.modalRatingContainer}>
-                        {[1, 2, 3, 4, 5].map(star => (
-                          <Ionicons 
-                            key={star}
-                            name={star <= productoSeleccionado.rating ? "star" : "star-outline"} 
-                            size={16} 
-                            color="#FFD700" 
-                            style={{marginHorizontal: 2}}
-                          />
-                        ))}
-                        <ThemedText style={styles.modalReviews}>({productoSeleccionado.reviews})</ThemedText>
-                      </View>
-                    )}
-                    
-                    <ThemedText style={styles.modalPrice}>${productoSeleccionado.price}</ThemedText>
-                    
-                    <View style={styles.separator} />
-                    
-                    <ThemedText style={styles.modalDescription}>{productoSeleccionado.description}</ThemedText>
-                    
-                    {productoSeleccionado.specs && Object.keys(productoSeleccionado.specs).length > 0 && (
-                      <View style={styles.specsContainer}>
-                        <ThemedText style={styles.specsTitle}>Especificaciones</ThemedText>
-                        {productoSeleccionado.specs.material && (
-                          <View style={styles.specRow}>
-                            <Ionicons name="hardware-chip-outline" size={16} color={colors.primaryMedium} />
-                            <ThemedText style={styles.modalSpecs}>Material: {productoSeleccionado.specs.material}</ThemedText>
-                          </View>
-                        )}
-                        {productoSeleccionado.specs.conectividad && (
-                          <View style={styles.specRow}>
-                            <Ionicons name="wifi-outline" size={16} color={colors.primaryMedium} />
-                            <ThemedText style={styles.modalSpecs}>Conectividad: {productoSeleccionado.specs.conectividad}</ThemedText>
-                          </View>
-                        )}
-                        {productoSeleccionado.specs.bateria && (
-                          <View style={styles.specRow}>
-                            <Ionicons name="battery-charging-outline" size={16} color={colors.primaryMedium} />
-                            <ThemedText style={styles.modalSpecs}>Batería: {productoSeleccionado.specs.bateria}</ThemedText>
-                          </View>
-                        )}
-                        {productoSeleccionado.specs.motorizacion && (
-                          <View style={styles.specRow}>
-                            <Ionicons name="car-outline" size={16} color={colors.primaryMedium} />
-                            <ThemedText style={styles.modalSpecs}>Motorización: {productoSeleccionado.specs.motorizacion}</ThemedText>
-                          </View>
-                        )}
-                        {productoSeleccionado.specs.resistencia && (
-                          <View style={styles.specRow}>
-                            <Ionicons name="shield-outline" size={16} color={colors.primaryMedium} />
-                            <ThemedText style={styles.modalSpecs}>Resistencia: {productoSeleccionado.specs.resistencia}</ThemedText>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                    
-                    <TouchableOpacity 
-                      style={styles.webButton}
-                      onPress={() => Linking.openURL(productoSeleccionado.webUrl || '')}
-                    >
-                      <Ionicons name="globe-outline" size={20} color={colors.white} />
-                      <ThemedText style={styles.buttonText}>Ver en Web</ThemedText>
-                    </TouchableOpacity>
-                    
-                    {/* Added extra padding at the bottom to ensure better scrolling */}
-                    <View style={styles.bottomPadding} />
-                  </ScrollView>
-                </Animated.View>
-              </TouchableWithoutFeedback>
+          <View style={styles.modalFullScreen}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={cerrarModal} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={colors.primaryDark} />
+              </TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
+            
+            <ScrollView style={styles.fullScrollView}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalImageContainer}>
+                  <Image 
+                    source={{ uri: productoSeleccionado.image.startsWith('http') 
+                      ? productoSeleccionado.image 
+                      : `http://192.168.1.79:5000${productoSeleccionado.image}` }} 
+                    style={styles.modalImage}
+                  />
+                </View>
+                <ThemedText style={styles.modalTitle}>{productoSeleccionado.title}</ThemedText>
+                <ThemedText style={styles.modalBrand}>{productoSeleccionado.brand}</ThemedText>
+                
+                {productoSeleccionado.rating > 0 && (
+                  <View style={styles.modalRatingContainer}>
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <Ionicons 
+                        key={star}
+                        name={star <= productoSeleccionado.rating ? "star" : "star-outline"} 
+                        size={16} 
+                        color="#FFD700" 
+                        style={{marginHorizontal: 2}}
+                      />
+                    ))}
+                    <ThemedText style={styles.modalReviews}>({productoSeleccionado.reviews})</ThemedText>
+                  </View>
+                )}
+                
+                <ThemedText style={styles.modalPrice}>${productoSeleccionado.price}</ThemedText>
+                
+                <View style={styles.separator} />
+                
+                <ThemedText style={styles.modalDescription}>{productoSeleccionado.description}</ThemedText>
+                
+                {productoSeleccionado.specs && Object.keys(productoSeleccionado.specs).length > 0 && (
+                  <View style={styles.specsContainer}>
+                    <ThemedText style={styles.specsTitle}>Especificaciones</ThemedText>
+                    {productoSeleccionado.specs.material && (
+                      <View style={styles.specRow}>
+                        <Ionicons name="hardware-chip-outline" size={16} color={colors.primaryMedium} />
+                        <ThemedText style={styles.modalSpecs}>Material: {productoSeleccionado.specs.material}</ThemedText>
+                      </View>
+                    )}
+                    {productoSeleccionado.specs.conectividad && (
+                      <View style={styles.specRow}>
+                        <Ionicons name="wifi-outline" size={16} color={colors.primaryMedium} />
+                        <ThemedText style={styles.modalSpecs}>Conectividad: {productoSeleccionado.specs.conectividad}</ThemedText>
+                      </View>
+                    )}
+                    {productoSeleccionado.specs.bateria && (
+                      <View style={styles.specRow}>
+                        <Ionicons name="battery-charging-outline" size={16} color={colors.primaryMedium} />
+                        <ThemedText style={styles.modalSpecs}>Batería: {productoSeleccionado.specs.bateria}</ThemedText>
+                      </View>
+                    )}
+                    {productoSeleccionado.specs.motorizacion && (
+                      <View style={styles.specRow}>
+                        <Ionicons name="car-outline" size={16} color={colors.primaryMedium} />
+                        <ThemedText style={styles.modalSpecs}>Motorización: {productoSeleccionado.specs.motorizacion}</ThemedText>
+                      </View>
+                    )}
+                    {productoSeleccionado.specs.resistencia && (
+                      <View style={styles.specRow}>
+                        <Ionicons name="shield-outline" size={16} color={colors.primaryMedium} />
+                        <ThemedText style={styles.modalSpecs}>Resistencia: {productoSeleccionado.specs.resistencia}</ThemedText>
+                      </View>
+                    )}
+                  </View>
+                )}
+                
+                <TouchableOpacity 
+                  style={styles.webButton}
+                  onPress={() => Linking.openURL(productoSeleccionado.webUrl || '')}
+                >
+                  <Ionicons name="globe-outline" size={20} color={colors.white} />
+                  <ThemedText style={styles.buttonText}>Ver en Web</ThemedText>
+                </TouchableOpacity>
+                
+                <View style={styles.bottomPadding} />
+              </View>
+            </ScrollView>
+          </View>
         </Modal>
       )}
     </ScrollView>
@@ -501,39 +493,30 @@ const styles = StyleSheet.create({
     color: colors.primaryMedium,
     marginLeft: 3,
   },
-  modalOverlay: {
+  // NUEVO: Estilos del modal rediseñado
+  modalFullScreen: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
     backgroundColor: colors.white,
-    borderRadius: 20,
-    width: '85%',
-    maxHeight: '80%',
-    marginTop: 'auto',
-    marginBottom: 'auto',
-    overflow: 'hidden',
   },
-  modalScrollView: {
-    width: '100%',
-  },
-  modalContent: {
+  modalHeader: {
+    height: 60,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    width: '100%',
-    paddingBottom: 20, // Added more padding at bottom
+    paddingHorizontal: 20,
   },
   closeButton: {
-    position: 'absolute',
-    top: 15,
-    right: 15,
-    zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
+    padding: 8,
+  },
+  fullScrollView: {
+    flex: 1,
+  },
+  modalContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 50,
     alignItems: 'center',
   },
   modalImageContainer: {
@@ -543,6 +526,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    marginTop: 10,
   },
   modalImage: {
     width: 120,
@@ -555,7 +539,7 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     marginBottom: 4,
     textAlign: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
   },
   modalBrand: {
     fontSize: 16,
@@ -584,8 +568,7 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(0,0,0,0.1)',
     marginVertical: 16,
-    width: '90%',
-    alignSelf: 'center',
+    width: '100%',
   },
   modalDescription: {
     fontSize: 15,
@@ -593,17 +576,14 @@ const styles = StyleSheet.create({
     color: colors.primaryLight,
     textAlign: 'left',
     marginBottom: 16,
-    paddingHorizontal: 20,
     width: '100%',
   },
   specsContainer: {
     backgroundColor: 'rgba(65, 90, 119, 0.05)',
     borderRadius: 12,
     padding: 16,
-    marginHorizontal: 20,
-    marginBottom: 20, // Increased margin bottom
-    width: '90%', // Make sure it's properly sized
-    alignSelf: 'center',
+    marginBottom: 20,
+    width: '100%',
   },
   specsTitle: {
     fontSize: 16,
@@ -620,7 +600,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.primaryMedium,
     marginLeft: 8,
-    flex: 1, // Allow text to wrap if needed
+    flex: 1,
   },
   webButton: {
     backgroundColor: colors.primaryMedium,
@@ -629,9 +609,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 10,
-    width: '90%', // Make the button a bit narrower
-    marginTop: 5, // Added some top margin
-    marginBottom: 20, // Ensure space below the button
+    width: '90%',
+    marginTop: 10,
+    marginBottom: 30,
   },
   buttonText: {
     color: colors.white,
@@ -640,6 +620,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   bottomPadding: {
-    height: 20, // Extra padding at the bottom to ensure content is fully scrollable
+    height: 60,
   }
 });
