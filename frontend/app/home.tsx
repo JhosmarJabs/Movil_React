@@ -396,15 +396,19 @@ export default function WelcomeScreen({ navigation }) {
           <View style={styles.footerContainer}>
             <TouchableOpacity 
               style={styles.footerButton}
-              onPress={() => navigation.navigate('Login')}
+              onPress={() => router.push('/login')}
             >
               <ThemedText style={styles.footerButtonText}>Iniciar Sesión</ThemedText>
             </TouchableOpacity>
             
             <View style={styles.footerDivider} />
             
-            <TouchableOpacity style={styles.footerButton}>
+            <TouchableOpacity 
+            style={styles.footerButton}
+            onPress={() => router.push('/contacto')}
+            >
               <ThemedText style={styles.footerButtonText}>Contacto</ThemedText>
+              
             </TouchableOpacity>
           </View>
         </Animated.View>

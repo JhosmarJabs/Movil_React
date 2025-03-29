@@ -109,7 +109,7 @@ const MQTTPersianaControl = () => {
               guardarEstado(valorApertura);
             }
           } catch (e) {
-            // Error silencioso
+            console.error('Error procesando mensaje MQTT:', e);
           }
         }
 
