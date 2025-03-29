@@ -249,7 +249,7 @@ export default function WelcomeScreen({ navigation }) {
                 </View>
 
                 <View style={styles.scrollIndicator}>
-                  <ThemedText style={styles.scrollText}>Descubre Productos de Seguridad</ThemedText>
+                  <ThemedText style={styles.scrollText}>Descubre Nuestros Producto</ThemedText>
                   <Ionicons name="chevron-down" size={24} color={colors.white} />
                 </View>
               </View>
@@ -491,13 +491,16 @@ const styles = StyleSheet.create({
   },
   welcomeBackground: {
     width: '100%',
-    height: '100%',
+    height: '111%',
+    
   },
   gradientOverlay: {
-    flex: 1,
+    width: '100%', // Asegura que el ancho cubra toda la imagen
+    height: '111%', // Asegura que el alto cubra toda la imagen
+    position: 'absolute', // Asegura que se superponga correctamente
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 20
   },
   welcomeContent: {
     flex: 1,
