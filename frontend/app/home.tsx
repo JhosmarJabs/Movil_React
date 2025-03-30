@@ -249,7 +249,7 @@ export default function WelcomeScreen({ navigation }) {
                 </View>
 
                 <View style={styles.scrollIndicator}>
-                  <ThemedText style={styles.scrollText}>Descubre Nuestros Producto</ThemedText>
+                  <ThemedText style={styles.scrollText}>Algunos Producto</ThemedText>
                   <Ionicons name="chevron-down" size={24} color={colors.white} />
                 </View>
               </View>
