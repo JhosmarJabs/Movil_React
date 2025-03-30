@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, Image, StyleSheet, View, TouchableOpacity, Dimensions, ActivityIndicator, Modal, Animated, Easing, TouchableWithoutFeedback, Linking, SafeAreaView } from 'react-native';
+import { ScrollView, Image, StyleSheet, View, TouchableOpacity, Dimensions, ActivityIndicator, Modal, Animated, Easing, TouchableWithoutFeedback, Linking, SafeAreaView, TextInput } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,15 +34,16 @@ interface Producto {
 }
 
 export default function ProductsScreen() {
-  // State management remains the same
   const [productos, setProductos] = useState<Producto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [categorias, setCategorias] = useState<string[]>([]);
-
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const slideAnim = useState(new Animated.Value(500))[0];
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [filteredProducts, setFilteredProducts] = useState<Producto[]>([]);
 
   const abrirModal = (producto: Producto) => {
     setProductoSeleccionado(producto);
@@ -124,11 +125,25 @@ export default function ProductsScreen() {
       });
   }, []);
 
-  const productosPorCategoria = (categoria: string) => {
-    return productos.filter(producto => producto.category === categoria);
-  };
+  useEffect(() => {
+    let filtered = productos;
+    
+    // Aplicar filtro de búsqueda
+    if (searchQuery) {
+      filtered = filtered.filter(producto =>
+        producto.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        producto.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        producto.description.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
 
-  // Render functions with enhanced styling
+    // Aplicar filtro de categoría
+    if (selectedCategory) {
+      filtered = filtered.filter(producto => producto.category === selectedCategory);
+    }
+
+    setFilteredProducts(filtered);
+  }, [searchQuery, selectedCategory, productos]);
 
   if (isLoading) {
     return (
@@ -169,59 +184,90 @@ export default function ProductsScreen() {
         <View style={styles.header}>
           <ThemedText type="title" style={styles.mainTitle}>Nuestros Productos</ThemedText>
         </View>
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={20} color={colors.primaryMedium} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar productos..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor={colors.primaryLight}
+            />
+            {searchQuery !== '' && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color={colors.primaryMedium} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                !selectedCategory && styles.filterChipSelected
+              ]}
+              onPress={() => setSelectedCategory('')}
+            >
+              <ThemedText style={[styles.filterText, !selectedCategory && styles.filterTextSelected]}>
+                Todos
+              </ThemedText>
+            </TouchableOpacity>
+            {categorias.map(categoria => (
+              <TouchableOpacity
+                key={categoria}
+                style={[
+                  styles.filterChip,
+                  selectedCategory === categoria && styles.filterChipSelected
+                ]}
+                onPress={() => setSelectedCategory(categoria)}
+              >
+                <ThemedText style={[styles.filterText, selectedCategory === categoria && styles.filterTextSelected]}>
+                  {categoria}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       </LinearGradient>
 
-      {categorias.map(categoria => {
-        const productosFiltrados = productosPorCategoria(categoria);
-        if (productosFiltrados.length === 0) return null;
-
-        return (
-          <View key={categoria} style={styles.categoryContainer}>
-            <View style={styles.categoryHeader}>
-              <ThemedText type="subtitle" style={styles.categoryTitle}>{categoria}</ThemedText>
-              <View style={styles.categoryLine}></View>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-              {productosFiltrados.map(producto => (
-                <TouchableOpacity key={producto._id} onPress={() => abrirModal(producto)} activeOpacity={0.7}>
-                  <ThemedView style={styles.horizontalProductCard}>
-                    {producto.discount > 0 && (
-                      <View style={styles.badgeContainer}>
-                        <View style={styles.discountBadge}>
-                          <ThemedText style={styles.discountText}>{producto.discount}% OFF</ThemedText>
-                        </View>
+      <View style={styles.productsGrid}>
+        {filteredProducts.map(producto => (
+          <TouchableOpacity key={producto._id} onPress={() => abrirModal(producto)} activeOpacity={0.7}>
+            <ThemedView style={styles.horizontalProductCard}>
+              {producto.discount > 0 && (
+                <View style={styles.badgeContainer}>
+                  <View style={styles.discountBadge}>
+                    <ThemedText style={styles.discountText}>{producto.discount}% OFF</ThemedText>
+                  </View>
+                </View>
+              )}
+              <View style={styles.iconCircle}>
+                <Image 
+                  source={{ uri: producto.image.startsWith('http') 
+                    ? producto.image 
+                    : `http://192.168.1.79:5000${producto.image}` }} 
+                  style={styles.productImage}
+                />
+              </View>
+              <View style={styles.productInfo}>
+                <ThemedText style={styles.productCategory}>{producto.brand}</ThemedText>
+                <ThemedText style={styles.productTitle} numberOfLines={1} ellipsizeMode="tail">{producto.title}</ThemedText>
+                <View style={styles.priceRow}>
+                  <View style={styles.priceContainer}>
+                    <ThemedText style={styles.productPrice}>${producto.price}</ThemedText>
+                    {producto.rating > 0 && (
+                      <View style={styles.ratingContainer}>
+                        <Ionicons name="star" size={12} color="#FFD700" />
+                        <ThemedText style={styles.ratingText}>{producto.rating}</ThemedText>
                       </View>
                     )}
-                    <View style={styles.iconCircle}>
-                      <Image 
-                        source={{ uri: producto.image.startsWith('http') 
-                          ? producto.image 
-                          : `http://192.168.1.79:5000${producto.image}` }} 
-                        style={styles.productImage}
-                      />
-                    </View>
-                    <View style={styles.productInfo}>
-                      <ThemedText style={styles.productCategory}>{producto.brand}</ThemedText>
-                      <ThemedText style={styles.productTitle} numberOfLines={1} ellipsizeMode="tail">{producto.title}</ThemedText>
-                      <View style={styles.priceRow}>
-                        <View style={styles.priceContainer}>
-                          <ThemedText style={styles.productPrice}>${producto.price}</ThemedText>
-                          {producto.rating > 0 && (
-                            <View style={styles.ratingContainer}>
-                              <Ionicons name="star" size={12} color="#FFD700" />
-                              <ThemedText style={styles.ratingText}>{producto.rating}</ThemedText>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                  </ThemedView>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        );
-      })}
+                  </View>
+                </View>
+              </View>
+            </ThemedView>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {productoSeleccionado && (
         <Modal
@@ -332,7 +378,7 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     paddingHorizontal: 16,
-    paddingTop: 25,
+    paddingTop: 35, // Aumentamos el padding superior
     paddingBottom: 15,
     marginBottom: 10,
   },
@@ -365,17 +411,74 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start', // Cambiamos a flex-start para mejor control
     alignItems: 'center',
+    marginBottom: 10, // Añadimos margen inferior
   },
   mainTitle: {
-    fontSize: 28,
+    fontSize: 24, // Reducimos un poco el tamaño
     fontWeight: 'bold',
     fontFamily: 'Montserrat',
     color: colors.primaryDark,
     textShadowColor: 'rgba(0, 0, 0, 0.1)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
+    paddingRight: 10, // Añadimos padding derecho
+    flexShrink: 1, // Permitimos que el texto se encoja si es necesario
+  },
+  searchContainer: {
+    marginTop: 15,
+    paddingBottom: 10,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 16,
+    color: colors.primaryDark,
+    fontFamily: 'Open Sans',
+  },
+  categoryFilter: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  filterChipSelected: {
+    backgroundColor: colors.primaryMedium,
+    borderColor: colors.primaryMedium,
+  },
+  filterText: {
+    color: colors.primaryMedium,
+    fontSize: 14,
+    fontFamily: 'Open Sans',
+  },
+  filterTextSelected: {
+    color: colors.white,
+    fontWeight: '500',
+  },
+  productsGrid: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   categoryContainer: {
     marginBottom: 24,
@@ -468,13 +571,13 @@ const styles = StyleSheet.create({
   },
   priceRow: {
     flexDirection: 'row',
-    justifyContent: 'center', // Changed from space-between to center
+    justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
     marginTop: 2,
   },
   priceContainer: {
-    alignItems: 'center', // Center the price and rating
+    alignItems: 'center',
   },
   productPrice: {
     fontSize: 18,
@@ -486,14 +589,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 2,
-    justifyContent: 'center', // Center the star and rating
+    justifyContent: 'center',
   },
   ratingText: {
     fontSize: 12,
     color: colors.primaryMedium,
     marginLeft: 3,
   },
-  // NUEVO: Estilos del modal rediseñado
   modalFullScreen: {
     flex: 1,
     backgroundColor: colors.white,
