@@ -83,7 +83,7 @@ export default function ProductsScreen() {
       availability: producto.availability || '',
       image: producto.image || 'https://via.placeholder.com/150',
       specs: producto.specs || {},
-      webUrl: producto.webUrl || 'https://www.example.com/products',
+      webUrl: producto.webUrl || 'https://fronttt-three.vercel.app',
     };
   };
 

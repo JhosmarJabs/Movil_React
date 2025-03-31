@@ -117,7 +117,7 @@ export default function WelcomeScreen({ navigation }) {
       brand: producto.brand || '',
       image: producto.image || 'https://via.placeholder.com/150',
       specs: producto.specs || {},
-      webUrl: producto.webUrl || 'https://www.example.com/products',
+      webUrl: producto.webUrl || 'https://fronttt-three.vercel.app',
     };
   };
 

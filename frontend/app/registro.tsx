@@ -28,101 +28,123 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Validaciones
-  const validateEmail = (email) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.toLowerCase());
+  // Validaciones mejoradas
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.toLowerCase());
+  };
 
-  const validateOnlyLetters = (text) =>
-    /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(text);
+  const validateOnlyLetters = (text: string): boolean => {
+    const letterRegex = /^[a-záéíóúñü\s]{2,}$/i;
+    return letterRegex.test(text);
+  };
 
-  const validateOnlyNumbers = (text) =>
-    /^[0-9]+$/.test(text);
+  const validateOnlyNumbers = (text: string): boolean => {
+    const numberRegex = /^\d{8,15}$/;
+    return numberRegex.test(text);
+  };
 
-  const validatePassword = (pass) => {
-    if (pass.length < 8) return 'Debe tener al menos 8 caracteres';
-    if (!/[A-Z]/.test(pass)) return 'Debe incluir al menos una mayúscula';
-    if (!/[0-9]/.test(pass)) return 'Debe incluir al menos un número';
-    if (!/[^A-Za-z0-9]/.test(pass)) return 'Debe incluir al menos un carácter especial';
+  const validatePassword = (pass: string): string => {
+    const minLength = pass.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(pass);
+    const hasNumber = /\d/.test(pass);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(pass);
+
+    if (!minLength) return 'La contraseña debe tener al menos 8 caracteres';
+    if (!hasUpperCase) return 'La contraseña debe incluir al menos una mayúscula';
+    if (!hasNumber) return 'La contraseña debe incluir al menos un número';
+    if (!hasSpecialChar) return 'La contraseña debe incluir al menos un carácter especial';
     return '';
   };
 
   const handleRegister = async () => {
-    if (!nombre || !surname || !phone || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Completa todos los campos');
-      return;
-    }
-
-    if (!validateOnlyLetters(nombre)) {
-      Alert.alert('Error', 'El nombre solo puede contener letras y espacios');
-      return;
-    }
-
-    if (!validateOnlyLetters(surname)) {
-      Alert.alert('Error', 'El apellido solo puede contener letras y espacios');
-      return;
-    }
-
-    if (!validateOnlyNumbers(phone)) {
-      Alert.alert('Error', 'El teléfono solo puede contener números');
-      return;
-    }
-
-    if (phone.length < 8 || phone.length > 15) {
-      Alert.alert('Error', 'El teléfono debe tener entre 8 y 15 dígitos');
-      return;
-    }
-
-    if (!validateEmail(email)) {
-      Alert.alert('Error', 'Correo electrónico inválido');
-      return;
-    }
-
-    const passwordValidation = validatePassword(password);
-    if (passwordValidation) {
-      Alert.alert('Error', passwordValidation);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
-      return;
-    }
-
-    // Armar objeto a enviar
-    const requestBody = {
-      name: nombre,
-      surname,
-      phone,
-      email,
-      password,
-      role: 'cliente',
-      status: 'active',
-    };
-
-    console.log("📦 Enviando datos al backend:", requestBody);
-
     try {
-      setIsLoading(true);
+      // Validar campos vacíos
+      if (!nombre.trim() || !surname.trim() || !phone.trim() || !email.trim() || !password || !confirmPassword) {
+        Alert.alert('Error', 'Todos los campos son obligatorios');
+        return;
+      }
 
-      const res = await fetch('https://backendd-lidd.onrender.com/usuarios/registro', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
+      // Validar longitud mínima del nombre y apellido
+      if (nombre.trim().length < 2 || surname.trim().length < 2) {
+        Alert.alert('Error', 'El nombre y apellido deben tener al menos 2 caracteres');
+        return;
+      }
 
-      const data = await res.json();
+      // Validar nombre y apellido
+      if (!validateOnlyLetters(nombre.trim())) {
+        Alert.alert('Error', 'El nombre solo puede contener letras');
+        return;
+      }
 
-      if (res.ok) {
-        Alert.alert('Éxito', 'Cuenta creada correctamente', [
-          { text: 'OK', onPress: () => router.replace('/login') },
-        ]);
-      } else {
-        Alert.alert('Error', data.message || 'Ocurrió un error al registrarte');
+      if (!validateOnlyLetters(surname.trim())) {
+        Alert.alert('Error', 'El apellido solo puede contener letras');
+        return;
+      }
+
+      // Validar teléfono
+      if (!validateOnlyNumbers(phone.trim())) {
+        Alert.alert('Error', 'El teléfono debe contener entre 8 y 15 dígitos');
+        return;
+      }
+
+      // Validar email
+      if (!validateEmail(email.trim())) {
+        Alert.alert('Error', 'El formato del correo electrónico no es válido');
+        return;
+      }
+
+      // Validar contraseña
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        Alert.alert('Error', passwordError);
+        return;
+      }
+
+      // Validar confirmación de contraseña
+      if (password !== confirmPassword) {
+        Alert.alert('Error', 'Las contraseñas no coinciden');
+        return;
+      }
+
+      // Si todas las validaciones pasan, continuar con el registro
+      const requestBody = {
+        name: nombre.trim(),
+        surname: surname.trim(),
+        phone: phone.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        role: 'cliente',
+        status: 'active',
+      };
+
+      console.log("📦 Enviando datos al backend:", requestBody);
+
+      try {
+        setIsLoading(true);
+
+        const res = await fetch('https://backendd-lidd.onrender.com/usuarios/registro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          Alert.alert('Éxito', 'Cuenta creada correctamente', [
+            { text: 'OK', onPress: () => router.replace('/login') },
+          ]);
+        } else {
+          Alert.alert('Error', data.message || 'Ocurrió un error al registrarte');
+        }
+      } catch (error) {
+        Alert.alert('Error', 'No se pudo conectar al servidor');
+      } finally {
+        setIsLoading(false);
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo conectar al servidor');
-    } finally {
-      setIsLoading(false);
+      Alert.alert('Error', 'Ocurrió un error inesperado');
     }
   };
 
