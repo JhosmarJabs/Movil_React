@@ -230,43 +230,71 @@ export default function ProductsScreen() {
         </View>
       </LinearGradient>
 
-      <View style={styles.productsGrid}>
-        {filteredProducts.map(producto => (
-          <TouchableOpacity key={producto._id} onPress={() => abrirModal(producto)} activeOpacity={0.7}>
-            <ThemedView style={styles.horizontalProductCard}>
-              {producto.discount > 0 && (
-                <View style={styles.badgeContainer}>
-                  <View style={styles.discountBadge}>
-                    <ThemedText style={styles.discountText}>{producto.discount}% OFF</ThemedText>
-                  </View>
-                </View>
-              )}
-              <View style={styles.iconCircle}>
-                <Image 
-                  source={{ uri: producto.image.startsWith('http') 
-                    ? producto.image 
-                    : `http://192.168.1.79:5000${producto.image}` }} 
-                  style={styles.productImage}
-                />
+      <View style={styles.categoriesContainer}>
+        {categorias.map(categoria => {
+          const productosCategoria = filteredProducts.filter(
+            producto => producto.category === categoria
+          );
+          
+          if (productosCategoria.length === 0) return null;
+
+          return (
+            <View key={categoria} style={styles.categorySection}>
+              <View style={styles.categoryHeader}>
+                <ThemedText style={styles.categoryTitle}>{categoria}</ThemedText>
+                <View style={styles.categoryLine} />
               </View>
-              <View style={styles.productInfo}>
-                <ThemedText style={styles.productCategory}>{producto.brand}</ThemedText>
-                <ThemedText style={styles.productTitle} numberOfLines={1} ellipsizeMode="tail">{producto.title}</ThemedText>
-                <View style={styles.priceRow}>
-                  <View style={styles.priceContainer}>
-                    <ThemedText style={styles.productPrice}>${producto.price}</ThemedText>
-                    {producto.rating > 0 && (
-                      <View style={styles.ratingContainer}>
-                        <Ionicons name="star" size={12} color="#FFD700" />
-                        <ThemedText style={styles.ratingText}>{producto.rating}</ThemedText>
+              
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.horizontalScroll}
+              >
+                {productosCategoria.map(producto => (
+                  <TouchableOpacity 
+                    key={producto._id} 
+                    onPress={() => abrirModal(producto)} 
+                    activeOpacity={0.7}
+                    style={styles.cardContainer}
+                  >
+                    <ThemedView style={styles.horizontalProductCard}>
+                      {producto.discount > 0 && (
+                        <View style={styles.badgeContainer}>
+                          <View style={styles.discountBadge}>
+                            <ThemedText style={styles.discountText}>{producto.discount}% OFF</ThemedText>
+                          </View>
+                        </View>
+                      )}
+                      <View style={styles.iconCircle}>
+                        <Image 
+                          source={{ uri: producto.image.startsWith('http') 
+                            ? producto.image 
+                            : `https://backendd-lidd.onrender.com${producto.image}` }} 
+                          style={styles.productImage}
+                        />
                       </View>
-                    )}
-                  </View>
-                </View>
-              </View>
-            </ThemedView>
-          </TouchableOpacity>
-        ))}
+                      <View style={styles.productInfo}>
+                        <ThemedText style={styles.productCategory}>{producto.brand}</ThemedText>
+                        <ThemedText style={styles.productTitle} numberOfLines={1} ellipsizeMode="tail">{producto.title}</ThemedText>
+                        <View style={styles.priceRow}>
+                          <View style={styles.priceContainer}>
+                            <ThemedText style={styles.productPrice}>${producto.price}</ThemedText>
+                            {producto.rating > 0 && (
+                              <View style={styles.modalRatingContainer}>
+                                <Ionicons name="star" size={12} color="#FFD700" />
+                                <ThemedText style={styles.ratingText}>{producto.rating}</ThemedText>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      </View>
+                    </ThemedView>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          );
+        })}
       </View>
 
       {productoSeleccionado && (
@@ -289,7 +317,7 @@ export default function ProductsScreen() {
                   <Image 
                     source={{ uri: productoSeleccionado.image.startsWith('http') 
                       ? productoSeleccionado.image 
-                      : `http://192.168.1.79:5000${productoSeleccionado.image}` }} 
+                      : `https://backendd-lidd.onrender.com${productoSeleccionado.image}` }} 
                     style={styles.modalImage}
                   />
                 </View>
@@ -375,6 +403,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.white,
+  },
+  productCategory: {
+    fontSize: 14,
+    color: colors.primaryMedium,
+    fontFamily: 'Open Sans',
+    marginBottom: 4,
+  },
+  productTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primaryDark,
+    fontFamily: 'Montserrat',
+    marginBottom: 4,
   },
   headerGradient: {
     paddingHorizontal: 16,
@@ -476,22 +517,21 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '500',
   },
-  productsGrid: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+  categoriesContainer: {
+    paddingTop: 10,
   },
-  categoryContainer: {
-    marginBottom: 24,
-    paddingHorizontal: 16,
+  categorySection: {
+    marginBottom: 25,
   },
   categoryHeader: {
+    paddingHorizontal: 16,
     marginBottom: 12,
   },
   categoryTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '600',
-    fontFamily: 'Open Sans',
-    color: colors.primaryMedium,
+    color: colors.primaryDark,
+    fontFamily: 'Montserrat',
   },
   categoryLine: {
     height: 3,
@@ -501,20 +541,22 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   horizontalScroll: {
-    paddingVertical: 8,
+    paddingLeft: 16,
+  },
+  cardContainer: {
+    width: width * 0.4,
+    marginRight: 12,
   },
   horizontalProductCard: {
-    width: width * 0.38,
+    flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 12,
-    marginRight: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 5,
-    overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },
@@ -537,68 +579,30 @@ const styles = StyleSheet.create({
   },
   iconCircle: {
     backgroundColor: 'rgba(65, 90, 119, 0.08)',
-    borderRadius: 50,
-    width: 80,
-    height: 80,
+    borderRadius: 12, // Cambiado a 12 para bordes redondeados suaves
+    width: 120,
+    height: 100, // Reducido para hacer un rectángulo
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
     alignSelf: 'center',
     borderWidth: 1,
     borderColor: 'rgba(65, 90, 119, 0.15)',
+    overflow: 'hidden',
+    padding: 10, // Reducido el padding
   },
   productImage: {
-    width: 60,
-    height: 60,
-    resizeMode: 'contain',
-  },
-  productInfo: {
-    alignItems: 'flex-start',
-  },
-  productCategory: {
-    fontSize: 12,
-    fontFamily: 'Open Sans',
-    color: colors.accent,
-    marginBottom: 2,
-    fontWeight: '500',
-  },
-  productTitle: {
-    fontSize: 14,
-    fontFamily: 'Open Sans',
-    color: colors.primaryMedium,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
     width: '100%',
-    marginTop: 2,
-  },
-  priceContainer: {
-    alignItems: 'center',
-  },
-  productPrice: {
-    fontSize: 18,
-    fontFamily: 'Montserrat',
-    color: colors.primaryDark,
-    fontWeight: 'bold',
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-    justifyContent: 'center',
-  },
-  ratingText: {
-    fontSize: 12,
-    color: colors.primaryMedium,
-    marginLeft: 3,
+    height: '100%',
+    resizeMode: 'contain', // Mantenemos 'contain' para preservar la proporción
   },
   modalFullScreen: {
     flex: 1,
     backgroundColor: colors.white,
+  },
+  productInfo: {
+    alignItems: 'center',
+    marginTop: 10,
   },
   modalHeader: {
     height: 60,
@@ -623,16 +627,17 @@ const styles = StyleSheet.create({
   },
   modalImageContainer: {
     width: '100%',
-    height: 160,
+    height: 200,     // Aumentado de 160 a 200
     backgroundColor: 'rgba(65, 90, 119, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
     marginTop: 10,
+    overflow: 'hidden', // Añadido para contener la imagen
   },
   modalImage: {
-    width: 120,
-    height: 120,
+    width: '80%',    // Cambiado a porcentaje
+    height: '80%',   // Cambiado a porcentaje
     resizeMode: 'contain',
   },
   modalTitle: {
@@ -723,5 +728,28 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 60,
-  }
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  productPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primaryDark,
+    fontFamily: 'Montserrat',
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  ratingText: {
+    fontSize: 12,
+    color: colors.primaryMedium,
+    fontFamily: 'Open Sans',
+    marginLeft: 4,
+  },
 });
