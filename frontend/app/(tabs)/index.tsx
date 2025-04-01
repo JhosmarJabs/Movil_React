@@ -198,76 +198,40 @@ const MQTTPersianaControl = () => {
 
   const enviarComandoPersiana = (valor: number) => {
     if (client && client.isConnected()) {
-      // Enviar comando en el formato que el Arduino espera
-      const comando = {
-        comando: enMovimiento ? 'getEstado' : String(valor)
-      };
-      
-      const message = new Paho.Message(JSON.stringify(comando));
-      message.destinationName = topics.persianasControl;
+      // El Arduino espera simplemente el valor numérico como string
+      const message = new Paho.Message(String(valor));
+      message.destinationName = topics.persianasCommand; // Usando el tópico correcto
       message.qos = 1;
       client.send(message);
 
       // Actualizar estado local
-      if (enMovimiento) {
+      setEnMovimiento(true);
+      setTimeout(() => {
         setEnMovimiento(false);
-      } else {
-        setEnMovimiento(true);
         setAperturaPersiana(valor);
         setPersianaAbierta(valor > 0);
         guardarEstado(valor);
-      }
-    } else if (!isConnected) {
-      Alert.alert(
-        'Sin conexión',
-        'No hay conexión con el controlador de persianas. Intente reconectar.',
-        [
-          { text: 'Cancelar' },
-          { text: 'Reconectar', onPress: () => connectClient() }
-        ]
-      );
+      }, 100); // Pequeño delay para mejor feedback visual
     }
   };
 
   const abrirCerrarPersiana = () => {
     if (enMovimiento) {
-      // Si está en movimiento, detener
+      // Si está en movimiento, enviamos el comando de detener
+      const message = new Paho.Message(JSON.stringify({ comando: 'getEstado' }));
+      message.destinationName = TOPICO_PERSIANA;
+      message.qos = 1;
+      client?.send(message);
       setEnMovimiento(false);
-      enviarComandoPersiana(aperturaPersiana); // Mantiene la posición actual
     } else {
-      // Si está detenida, abrir o cerrar
-      setEnMovimiento(true);
-      const nuevoEstado = !persianaAbierta;
-      const nuevaPosicion = nuevoEstado ? 100 : 0;
+      // Si está detenida, abrir o cerrar completamente
+      const nuevaPosicion = persianaAbierta ? 0 : 100;
       enviarComandoPersiana(nuevaPosicion);
     }
   };
 
   const aplicarPreset = (valor: number) => {
-    if (valor !== 0 && valor !== 100) {
-      Alert.alert(
-        'Preset no válido',
-        'Solo se permiten posiciones completamente abierta (100) o cerrada (0)',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
-    const comando = {
-      comando: String(valor)
-    };
-    
-    if (client && client.isConnected()) {
-      const message = new Paho.Message(JSON.stringify(comando));
-      message.destinationName = TOPICO_PERSIANA;
-      message.qos = 1;
-      client.send(message);
-      
-      setEnMovimiento(true);
-      setAperturaPersiana(valor);
-      setPersianaAbierta(valor > 0);
-      guardarEstado(valor);
-    }
+    enviarComandoPersiana(valor);
   };
 
   const cambiarModo = (modo: string) => {
