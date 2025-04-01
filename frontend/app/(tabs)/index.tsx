@@ -18,7 +18,7 @@ const topics = {
   persianasPosition: 'sensores/motor/position',
   persianasCommand: 'sensores/motor/set',
   persianasMode: 'sensores/motor/mode',
-  weatherData: 'sensores/weather'
+  persianasControl: 'sensores/motor/control'
 };
 
 const MQTTPersianaControl = () => {
@@ -28,18 +28,17 @@ const MQTTPersianaControl = () => {
   const [client, setClient] = useState<Paho.Client | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [presets, setPresets] = useState([
+  const [presets] = useState([
     { nombre: 'Abierta', valor: 100 },
-    { nombre: 'Entre abierta', valor: 50 },
-    { nombre: 'Cerrada', valor: 0 },
+    { nombre: 'Cerrada', valor: 0 }
   ]);
   // Estados para widgets
   const [temperaturaInterior, setTemperaturaInterior] = useState<number | null>(null);
-  const [temperaturaExterior, setTemperaturaExterior] = useState<number | null>(null);
   const [humedad, setHumedad] = useState<number | null>(null);
   const [luminosidad, setLuminosidad] = useState<number | null>(null);
   // Estado para el modo seleccionado
   const [modoActual, setModoActual] = useState('Manual');
+  const [enMovimiento, setEnMovimiento] = useState(false);
 
   const TOPICO_PERSIANA = 'sensores/motor/control';
   const TOPICO_ESTADO = 'sensores/motor/estado';
@@ -52,11 +51,6 @@ const MQTTPersianaControl = () => {
           const valor = parseInt(aperturaSaved);
           setAperturaPersiana(valor);
           setPersianaAbierta(valor > 0);
-        }
-
-        const presetsSaved = await AsyncStorage.getItem('presetsPersiana');
-        if (presetsSaved !== null) {
-          setPresets(JSON.parse(presetsSaved));
         }
       } catch (e) {
         console.error('Error al cargar estado guardado:', e);
@@ -121,17 +115,6 @@ const MQTTPersianaControl = () => {
           }
         }
         
-        if (message.destinationName === topics.weatherData) {
-          try {
-            const data = JSON.parse(message.payloadString);
-            if (data && data.temperature) {
-              setTemperaturaExterior(data.temperature);
-            }
-          } catch (e) {
-            console.error('Error parsing weather data:', e);
-          }
-        }
-        
         if (message.destinationName === topics.humidity) {
           const valor = parseInt(message.payloadString);
           if (!isNaN(valor)) {
@@ -171,7 +154,6 @@ const MQTTPersianaControl = () => {
             topics.persianasPosition,
             topics.persianasCommand,
             topics.persianasMode,
-            topics.weatherData,
             TOPICO_ESTADO,
             'sensores/motor/+',
           ];
@@ -214,35 +196,27 @@ const MQTTPersianaControl = () => {
     }
   };
 
-  const guardarPresets = async (nuevosPresets: { nombre: string; valor: number }[]) => {
-    try {
-      await AsyncStorage.setItem('presetsPersiana', JSON.stringify(nuevosPresets));
-      setPresets(nuevosPresets);
-    } catch (e) {
-      console.error('Error al guardar presets:', e);
-    }
-  };
-
   const enviarComandoPersiana = (valor: number) => {
     if (client && client.isConnected()) {
-      // Enviar comando al tópico de control
-      const message = new Paho.Message(String(valor));
-      message.destinationName = topics.persianasCommand;
+      // Enviar comando en el formato que el Arduino espera
+      const comando = {
+        comando: enMovimiento ? 'getEstado' : String(valor)
+      };
+      
+      const message = new Paho.Message(JSON.stringify(comando));
+      message.destinationName = topics.persianasControl;
       message.qos = 1;
-      client.send(message);      
+      client.send(message);
 
-      // Actualización inmediata de la UI para feedback
-      setAperturaPersiana(valor);
-      setPersianaAbierta(valor > 0);
-      guardarEstado(valor);
-
-      // Solicitar confirmación del estado actual
-      setTimeout(() => {
-        const statusRequest = new Paho.Message(JSON.stringify({ comando: 'getEstado' }));
-        statusRequest.destinationName = TOPICO_PERSIANA;
-        client.send(statusRequest);
-      }, 500);
-
+      // Actualizar estado local
+      if (enMovimiento) {
+        setEnMovimiento(false);
+      } else {
+        setEnMovimiento(true);
+        setAperturaPersiana(valor);
+        setPersianaAbierta(valor > 0);
+        guardarEstado(valor);
+      }
     } else if (!isConnected) {
       Alert.alert(
         'Sin conexión',
@@ -256,13 +230,44 @@ const MQTTPersianaControl = () => {
   };
 
   const abrirCerrarPersiana = () => {
-    const nuevoEstado = !persianaAbierta;
-    const nuevaPosicion = nuevoEstado ? 100 : 0;
-    enviarComandoPersiana(nuevaPosicion);
+    if (enMovimiento) {
+      // Si está en movimiento, detener
+      setEnMovimiento(false);
+      enviarComandoPersiana(aperturaPersiana); // Mantiene la posición actual
+    } else {
+      // Si está detenida, abrir o cerrar
+      setEnMovimiento(true);
+      const nuevoEstado = !persianaAbierta;
+      const nuevaPosicion = nuevoEstado ? 100 : 0;
+      enviarComandoPersiana(nuevaPosicion);
+    }
   };
 
   const aplicarPreset = (valor: number) => {
-    enviarComandoPersiana(valor);
+    if (valor !== 0 && valor !== 100) {
+      Alert.alert(
+        'Preset no válido',
+        'Solo se permiten posiciones completamente abierta (100) o cerrada (0)',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const comando = {
+      comando: String(valor)
+    };
+    
+    if (client && client.isConnected()) {
+      const message = new Paho.Message(JSON.stringify(comando));
+      message.destinationName = TOPICO_PERSIANA;
+      message.qos = 1;
+      client.send(message);
+      
+      setEnMovimiento(true);
+      setAperturaPersiana(valor);
+      setPersianaAbierta(valor > 0);
+      guardarEstado(valor);
+    }
   };
 
   const cambiarModo = (modo: string) => {
@@ -381,16 +386,10 @@ const MQTTPersianaControl = () => {
 
         {/* Widgets de sensores */}
         <View style={styles.sensorsContainer}>
-          <View style={styles.sensorWidget}>
+          <View style={[styles.sensorWidget, styles.singleWidget]}>
             <Ionicons name="thermometer-outline" size={24} color="#dc3545" />
             <Text style={styles.sensorValue}>{(temperaturaInterior ?? 0).toFixed(1)}°C</Text>
-            <Text style={styles.sensorLabel}>Temp. Interior</Text>
-          </View>
-          
-          <View style={styles.sensorWidget}>
-            <Ionicons name="thermometer-outline" size={24} color="#fd7e14" />
-            <Text style={styles.sensorValue}>{(temperaturaExterior ?? 0).toFixed(1)}°C</Text>
-            <Text style={styles.sensorLabel}>Temp. Exterior</Text>
+            <Text style={styles.sensorLabel}>Temperatura</Text>
           </View>
         </View>
         
@@ -409,20 +408,28 @@ const MQTTPersianaControl = () => {
         </View>
 
         <View style={styles.persianaVisualizacion}>
-          <View style={styles.ventana}>
-            <View style={[styles.persiana, { height: `${100 - aperturaPersiana}%` }]} />
+          <View style={[
+            styles.ventana, 
+            { backgroundColor: persianaAbierta ? '#28a745' : '#dc3545' }
+          ]}>
           </View>
-          <Text style={styles.aperturaText}>{aperturaPersiana}% abierta</Text>
         </View>
 
         <View style={styles.controlesContainer}>
           <TouchableOpacity
-            style={[styles.botonPrincipal, persianaAbierta ? styles.botonCerrar : styles.botonAbrir]}
+            style={[
+              styles.botonPrincipal, 
+              enMovimiento ? styles.botonDetener : (persianaAbierta ? styles.botonCerrar : styles.botonAbrir)
+            ]}
             onPress={abrirCerrarPersiana}
           >
-            <Ionicons name={persianaAbierta ? "close-outline" : "sunny-outline"} size={28} color="white" />
+            <Ionicons 
+              name={enMovimiento ? "stop-outline" : (persianaAbierta ? "close-outline" : "sunny-outline")} 
+              size={28} 
+              color="white" 
+            />
             <Text style={styles.botonTexto}>
-              {persianaAbierta ? "CERRAR PERSIANA" : "ABRIR PERSIANA"}
+              {enMovimiento ? "DETENER" : (persianaAbierta ? "CERRAR PERSIANA" : "ABRIR PERSIANA")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -572,6 +579,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e9ecef',
   },
+  singleWidget: {
+    flex: 1,
+    marginHorizontal: 4,
+    paddingVertical: 15, // Aumentamos el padding vertical para mejor visualización
+  },
   sensorValue: {
     fontSize: 16,
     fontWeight: 'bold',
@@ -594,22 +606,6 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#495057',
     borderRadius: 4,
-    overflow: 'hidden',
-    backgroundColor: '#e9ecef',
-  },
-  persiana: {
-    width: '100%',
-    backgroundColor: '#6c757d',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  aperturaText: {
-    marginTop: 8,
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#495057',
   },
   controlesContainer: {
     marginBottom: 24,
@@ -627,6 +623,9 @@ const styles = StyleSheet.create({
   },
   botonCerrar: {
     backgroundColor: '#dc3545',
+  },
+  botonDetener: {
+    backgroundColor: '#ffc107',
   },
   botonTexto: {
     color: 'white',
@@ -646,21 +645,22 @@ const styles = StyleSheet.create({
   },
   presetsButtons: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    width: '100%',
   },
   presetButton: {
-    width: '30%',
-    padding: 12,
+    width: '45%',
+    padding: 15,
     borderRadius: 8,
     backgroundColor: '#e9ecef',
     alignItems: 'center',
     marginBottom: 12,
-    elevation: 1,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   presetName: {
     fontSize: 14,
