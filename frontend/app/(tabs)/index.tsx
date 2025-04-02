@@ -18,7 +18,7 @@ const topics = {
   persianasPosition: 'sensores/motor/position',
   persianasCommand: 'sensores/motor/set',
   persianasMode: 'sensores/motor/mode',
-  persianasControl: 'sensores/motor/control'
+  persianasControl: 'sensores/motor/pause_resume'
 };
 
 const MQTTPersianaControl = () => {
@@ -29,9 +29,11 @@ const MQTTPersianaControl = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [presets] = useState([
-    { nombre: 'Abierta', valor: 100 },
-    { nombre: 'Cerrada', valor: 0 }
+    { nombre: 'Cerrar', valor: 100 },
+    { nombre: 'Abrir', valor: 0 }
   ]);
+  const [lastClickTime, setLastClickTime] = useState<{ [key: number]: number }>({});
+  const [pausado, setPausado] = useState(false);
   // Estados para widgets
   const [temperaturaInterior, setTemperaturaInterior] = useState<number | null>(null);
   const [humedad, setHumedad] = useState<number | null>(null);
@@ -42,6 +44,7 @@ const MQTTPersianaControl = () => {
 
   const TOPICO_PERSIANA = 'sensores/motor/control';
   const TOPICO_ESTADO = 'sensores/motor/estado';
+  const tiempoDobleClick = 300;
 
   useEffect(() => {
     const cargarEstadoGuardado = async () => {
@@ -215,14 +218,20 @@ const MQTTPersianaControl = () => {
     }
   };
 
-  const abrirCerrarPersiana = () => {
-    if (enMovimiento) {
-      // Si está en movimiento, enviamos el comando de detener
-      const message = new Paho.Message(JSON.stringify({ comando: 'getEstado' }));
+  const detenerPersiana = () => {
+    if (client && client.isConnected()) {
+      const message = new Paho.Message(JSON.stringify({ comando: 'detener' }));
       message.destinationName = TOPICO_PERSIANA;
       message.qos = 1;
-      client?.send(message);
+      client.send(message);
       setEnMovimiento(false);
+      setPausado(true);
+    }
+  };
+
+  const abrirCerrarPersiana = () => {
+    if (enMovimiento) {
+      detenerPersiana();
     } else {
       // Si está detenida, abrir o cerrar completamente
       const nuevaPosicion = persianaAbierta ? 100 : 0;
@@ -231,7 +240,18 @@ const MQTTPersianaControl = () => {
   };
 
   const aplicarPreset = (valor: number) => {
-    enviarComandoPersiana(valor);
+    const currentTime = new Date().getTime();
+    const lastClick = lastClickTime[valor] || 0;
+    
+    if (currentTime - lastClick < tiempoDobleClick) { // 300ms como en el Arduino
+      if (enMovimiento) {
+        detenerPersiana();
+      }
+    } else {
+      enviarComandoPersiana(valor);
+    }
+    
+    setLastClickTime({ ...lastClickTime, [valor]: currentTime });
   };
 
   const cambiarModo = (modo: string) => {
@@ -379,25 +399,6 @@ const MQTTPersianaControl = () => {
           </View>
         </View>
 
-        <View style={styles.controlesContainer}>
-          <TouchableOpacity
-            style={[
-              styles.botonPrincipal, 
-              enMovimiento ? styles.botonDetener : (persianaAbierta ? styles.botonCerrar : styles.botonAbrir)
-            ]}
-            onPress={abrirCerrarPersiana}
-          >
-            <Ionicons 
-              name={enMovimiento ? "stop-outline" : (persianaAbierta ? "close-outline" : "sunny-outline")} 
-              size={28} 
-              color="white" 
-            />
-            <Text style={styles.botonTexto}>
-              {enMovimiento ? "DETENER" : (persianaAbierta ? "CERRAR PERSIANA" : "ABRIR PERSIANA")}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.presetsContainer}>
           <Text style={styles.presetsTitle}>Presets rápidos:</Text>
           <View style={styles.presetsButtons}>
@@ -408,7 +409,6 @@ const MQTTPersianaControl = () => {
                 onPress={() => aplicarPreset(preset.valor)}
               >
                 <Text style={styles.presetName}>{preset.nombre}</Text>
-                <Text style={styles.presetValue}>{preset.valor}%</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -571,32 +571,6 @@ const styles = StyleSheet.create({
     borderColor: '#495057',
     borderRadius: 4,
   },
-  controlesContainer: {
-    marginBottom: 24,
-  },
-  botonPrincipal: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  botonAbrir: {
-    backgroundColor: '#28a745',
-  },
-  botonCerrar: {
-    backgroundColor: '#dc3545',
-  },
-  botonDetener: {
-    backgroundColor: '#ffc107',
-  },
-  botonTexto: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
   presetsContainer: {
     marginTop: 8,
     marginBottom: 20,
@@ -630,11 +604,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#343a40',
-    marginBottom: 4,
-  },
-  presetValue: {
-    fontSize: 12,
-    color: '#6c757d',
   },
 });
 
