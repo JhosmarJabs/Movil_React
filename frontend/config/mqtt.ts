@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 global.Buffer = Buffer;
 
 export const MQTT_CONFIG = {
-  host: '192.168.1.72',
+  host: '192.168.8.89',
   port: 9001,  // Cambiado a puerto WebSocket estándar para MQTT
   path: '/mqtt', 
   topic: 'sensores/led',
@@ -14,7 +14,7 @@ export const MQTT_CONFIG = {
     useSSL: false,
     reconnect: true,
     mqttVersion: 3,  // Cambiado a versión 3
-    hosts: ['192.168.1.72'],
+    hosts: ['192.168.8.89'],
     ports: [9001]
   }
 };
