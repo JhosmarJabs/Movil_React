@@ -50,7 +50,7 @@ const MQTTPersianaControl = () => {
         if (aperturaSaved !== null) {
           const valor = parseInt(aperturaSaved);
           setAperturaPersiana(valor);
-          setPersianaAbierta(valor > 0);
+          setPersianaAbierta(valor === 0);
         }
       } catch (e) {
         console.error('Error al cargar estado guardado:', e);
@@ -99,7 +99,7 @@ const MQTTPersianaControl = () => {
 
             if (!isNaN(valorApertura)) {
               setAperturaPersiana(valorApertura);
-              setPersianaAbierta(valorApertura > 0);
+              setPersianaAbierta(valorApertura === 0);
               guardarEstado(valorApertura);
             }
           } catch (e) {
@@ -209,7 +209,7 @@ const MQTTPersianaControl = () => {
       setTimeout(() => {
         setEnMovimiento(false);
         setAperturaPersiana(valor);
-        setPersianaAbierta(valor > 0);
+        setPersianaAbierta(valor === 0);
         guardarEstado(valor);
       }, 100); // Pequeño delay para mejor feedback visual
     }
@@ -225,7 +225,7 @@ const MQTTPersianaControl = () => {
       setEnMovimiento(false);
     } else {
       // Si está detenida, abrir o cerrar completamente
-      const nuevaPosicion = persianaAbierta ? 0 : 100;
+      const nuevaPosicion = persianaAbierta ? 100 : 0;
       enviarComandoPersiana(nuevaPosicion);
     }
   };
